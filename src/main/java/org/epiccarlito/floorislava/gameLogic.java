@@ -23,25 +23,28 @@ public class gameLogic {
     private final FloorIsLava plugin;
     private final saveFile saveFile;
     private final FileConfiguration config;
+    public FileConfiguration savedConfig;
+    public boolean activeGame = false;
+    public boolean ifSaveFile = false;
+
+    public World world;
+    public BossBar bossBar;
+    public String risingBlock;
+    public ArrayList<Player> playersAlive = new ArrayList<>();
+    public List<String> playerUUIDs;
+    public Location startPosition;
     private int xPosition;
     private int zPosition;
-    public FileConfiguration savedConfig;
-    public World world;
-    public boolean activeGame = false;
-    public String risingBlock;
-    public boolean clearActionBar;
+    public double graceProgress = 1.0;
+    public int gracePeriod;
     public int startingHeight;
     public int yLevel;
     public int heightIncrease;
     public int heightDelay;
-    public int gracePeriod;
-    public double graceProgress = 1.0;
     public int borderSize;
-    public Location startPosition;
-    public ArrayList<Player> playersAlive = new ArrayList<>();
-    public List<String> playerUUIDs;
-    public BossBar bossBar;
     public int playersNeeded = 2;
+
+    public boolean clearActionBar;
     private boolean forceTeleport;
     private boolean forceClear;
 
@@ -49,59 +52,46 @@ public class gameLogic {
         this.plugin = plugin;
         saveFile = plugin.saveFile;
         savedConfig = plugin.savedConfig;
+        ifSaveFile = savedConfig != null;
         config = plugin.getConfig();
 
-        plugin.getLogger().info(String.valueOf(savedConfig != null));
-
         try {
-            if (savedConfig != null) {
-                activeGame = savedConfig.getBoolean("activeGame");
-                risingBlock = savedConfig.getString("risingBlock");
-                clearActionBar = savedConfig.getBoolean("clearActionBar");
-                startingHeight = savedConfig.getInt("startingHeight");
-                heightIncrease = savedConfig.getInt("heightIncrease");
-                heightDelay = savedConfig.getInt("heightDelay");
-                gracePeriod = savedConfig.getInt("gracePeriod");
-                graceProgress = savedConfig.getDouble("graceProgress");
-                borderSize = savedConfig.getInt("borderSize");
-                xPosition = savedConfig.getInt("startPosition.x");
-                zPosition = savedConfig.getInt("startPosition.z");
-
-                String worldName = savedConfig.getString("world");
-                if (worldName != null) {
-                    world = Bukkit.getWorld(worldName);
-                }
-            } else {
-                loadConfig();
-            }
+            loadConfig();
         } catch (Exception e) {
             plugin.getLogger().warning("Error loading configuration: " + e.getMessage());
-            loadConfig();
         }
     }
 
     private void loadConfig() {
-        risingBlock = config.getString("risingBlock");
+        risingBlock = ifSaveFile ? savedConfig.getString("risingBlock") : config.getString("risingBlock");
         forceTeleport = config.getBoolean("forceTeleport");
         forceClear = config.getBoolean("forceClear");
-        clearActionBar = config.getBoolean("clearActionBar");
-        heightIncrease = config.getInt("heightIncrease");
-        heightDelay = config.getInt("heightDelay");
-        gracePeriod = config.getInt("gracePeriod");
-        borderSize = config.getInt("borderSize");
-        xPosition = config.getInt("startPosition.x");
-        zPosition = config.getInt("startPosition.z");
+        clearActionBar = ifSaveFile ? savedConfig.getBoolean("clearActionBar") : config.getBoolean("clearActionBar");
+        startingHeight = ifSaveFile ? savedConfig.getInt("startingHeight") : config.getInt("startingHeight");
+        heightIncrease = ifSaveFile ? savedConfig.getInt("heightIncrease") : config.getInt("heightIncrease");
+        heightDelay = ifSaveFile ? savedConfig.getInt("heightDelay") : config.getInt("heightDelay");
+        gracePeriod = ifSaveFile ? savedConfig.getInt("gracePeriod") : config.getInt("gracePeriod");
+        borderSize = ifSaveFile ? savedConfig.getInt("borderSize") : config.getInt("borderSize");
+        xPosition = ifSaveFile ? savedConfig.getInt("startPosition.x") : config.getInt("startPosition.x");
+        zPosition = ifSaveFile ? savedConfig.getInt("startPosition.z") : config.getInt("startPosition.z");
+
+        if (ifSaveFile) {
+            world = Bukkit.getWorld(Objects.requireNonNull(savedConfig.getString("world")));
+            graceProgress = savedConfig.getDouble("graceProgress");
+            playerUUIDs = savedConfig.getStringList("playersAlive");
+            playersNeeded = savedConfig.getInt("playersNeeded");
+        }
     }
 
 
     public void startGame(Player player) {
-        if (!player.hasPermission("floorislava")) {
-            player.sendMessage(plugin.PLUGIN_NAME + "You do not have access to this command!");
+        if (activeGame) {
+            player.sendMessage(plugin.PLUGIN_NAME + "A game is currently in session");
             return;
         }
 
-        if (activeGame) {
-            player.sendMessage(plugin.PLUGIN_NAME + "A game is currently in session");
+        if (ifSaveFile) {
+            player.sendMessage(plugin.PLUGIN_NAME + "Your save file has not been loaded");
             return;
         }
 
@@ -177,12 +167,17 @@ public class gameLogic {
     }
 
     public void loadGame(Player player) {
-        if (!new File(plugin.getDataFolder(), "save.yml").exists()) {
+        if (!ifSaveFile) {
             player.sendMessage(plugin.PLUGIN_NAME + "Save file not found");
             return;
         }
 
-        playerUUIDs = savedConfig.getStringList("playersAlive");
+        if (!savedConfig.getBoolean("activeGame")) {
+            player.sendMessage(plugin.PLUGIN_NAME + "Save data contains a finished game, please run /fl end");
+            return;
+        }
+
+        activeGame = true;
 
         for (String uuidString : playerUUIDs) {
             try {
@@ -237,7 +232,7 @@ public class gameLogic {
                 BarColor.GREEN,
                 BarStyle.SOLID);
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
+        for (Player player: Bukkit.getOnlinePlayers()) {
             player.sendMessage(plugin.PLUGIN_NAME + "Grace Period has started");
             bossBar.addPlayer(player);
             bossBar.setVisible(true);
@@ -384,7 +379,7 @@ public class gameLogic {
 
     public void endGame(Player player) {
         if (!activeGame) {
-            plugin.getServer().broadcastMessage(plugin.PLUGIN_NAME + "A game is not in session");
+            plugin.getServer().broadcastMessage(plugin.PLUGIN_NAME + "A game is not in session or not loaded");
             return;
         }
 
@@ -393,6 +388,7 @@ public class gameLogic {
 
         if (savedConfig != null) {
             saveFile.deleteFile();
+            ifSaveFile = false;
         }
 
         for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {

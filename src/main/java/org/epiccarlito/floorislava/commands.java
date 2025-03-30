@@ -49,12 +49,7 @@ public class commands implements CommandExecutor, TabCompleter {
                         break;
                     }
                     case "load": {
-                        if (game.activeGame) {
-                            player.sendMessage(plugin.PLUGIN_NAME + "A game is currently in session");
-                        } else {
-                            game.loadGame(player);
-                        }
-
+                        game.loadGame(player);
                         break;
                     }
                     case "end": {

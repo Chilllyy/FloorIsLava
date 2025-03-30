@@ -24,7 +24,7 @@ public class saveFile {
     public FileConfiguration findFile() {
         if (filePath.exists() && filePath.length() > 0) {
             savedConfig = YamlConfiguration.loadConfiguration(filePath);
-            plugin.getLogger().info("Found existing game data");
+            plugin.getLogger().info("Found save file");
         } else {
             savedConfig = null;
         }
@@ -44,7 +44,7 @@ public class saveFile {
 
     public void deleteFile() {
         if (filePath.exists() && filePath.delete()) {
-            plugin.getLogger().info("Deleted existing game data");
+            plugin.getLogger().info("Deleted save file");
         } else {
             plugin.getLogger().info("Failed to delete save.yml");
         }
@@ -82,6 +82,7 @@ public class saveFile {
             savedConfig.set("borderSize", game.borderSize);
             savedConfig.set("world", game.world.getName());
             savedConfig.set("playersAlive", playerUUIDs);
+            savedConfig.set("playersNeeded", game.playersNeeded);
             savedConfig.set("startPosition.x", game.startPosition.getX());
             savedConfig.set("startPosition.z", game.startPosition.getZ());
 
